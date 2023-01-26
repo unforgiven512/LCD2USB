@@ -7,12 +7,35 @@
 # License: Proprietary, free under certain conditions. See Documentation.
 # This Revision: $Id: Makefile.avrusb,v 1.1 2007/01/14 12:12:27 harbaum Exp $
 
-# DEFINES += -DBWCT_COMPAT 
-# DEFINES += -DDEBUG_LEVEL=1
-DEFINES += -DF_CPU=12000000
-COMPILE = avr-gcc -Wall -O2 -Iusbdrv -I. -mmcu=atmega8 $(DEFINES)
 
-OBJECTS = usbdrv/usbdrv.o usbdrv/usbdrvasm.o usbdrv/oddebug.o main.o lcd.o
+AVR_MCU := atmega328p
+AVR_CLK := 12000000
+OPT_LVL := 2
+
+CROSS   := avr-
+CC      := $(CROSS)gcc
+CXX     := $(CROSS)g++
+CPP     := $(CROSS)cpp
+OBJDUMP := $(CROSS)objdump
+OBJCOPY := $(CROSS)objcopy
+LD      := $(CROSS)ld
+SIZE    := $(CROSS)size
+NM      := $(CROSS)nm
+
+AVRDUDE  := avrdude
+AVR_PROG := usbasp
+
+
+#DEFINES += -DBWCT_COMPAT
+#DEFINES += -DDEBUG_LEVEL=1
+DEFINES += -DF_CPU=$(AVR_CLK)
+COMPILE := $(CC) -Wall -O$(OPT_LVL) -Iusbdrv -I. -mmcu=$(AVR_MCU) $(DEFINES)
+
+OBJECTS := usbdrv/usbdrv.o \
+		usbdrv/usbdrvasm.o \
+		usbdrv/oddebug.o \
+		main.o \
+		lcd.o
 
 
 # symbolic targets:
@@ -32,10 +55,10 @@ all:	firmware.hex
 	$(COMPILE) -S $< -o $@
 
 flash:	all
-	avrdude -c usbasp -p atmega8 -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
+	avrdude -c usbasp -p $(AVR_MCU) -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
 
 flash-nodep:
-	avrdude -c usbasp -p atmega8 -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
+	avrdude -c usbasp -p $(AVR_MCU) -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
 
 # Fuse high byte:
 # 0xc9 = 1 1 0 0   1 0 0 1 <-- BOOTRST (boot reset vector at 0x0000)
@@ -60,25 +83,26 @@ fuse:
 clean:
 	rm -f firmware.lst firmware.obj firmware.cof firmware.list firmware.map firmware.eep.hex firmware.bin *.o usbdrv/*.o firmware.s usbdrv/oddebug.s usbdrv/usbdrv.s
 
+
 # file targets:
 firmware.bin:	$(OBJECTS)
 	$(COMPILE) -o firmware.bin $(OBJECTS)
 
 firmware.hex:	firmware.bin
 	rm -f firmware.hex firmware.eep.hex
-	avr-objcopy -j .text -j .data -O ihex firmware.bin firmware.hex
+	$(OBJCOPY) -j .text -j .data -O ihex firmware.bin firmware.hex
 	./checksize firmware.bin 8192 960
 # do the checksize script as our last action to allow successful compilation
 # on Windows with WinAVR where the Unix commands will fail.
 
 avrdude: firmware.hex
-	avrdude -c usbasp -p atmega8 -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
+	$(AVRDUDE) -c $(AVR_PROG) -p $(AVR_MCU) -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
 
 avrdude-nodep:
-	avrdude -c usbasp -p atmega8 -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
+	$(AVRDUDE) -c $(AVR_PROG) -p $(AVR_MCU) -U lfuse:w:0x9f:m -U hfuse:w:0xc9:m -U flash:w:firmware.hex
 
 disasm:	firmware.bin
-	avr-objdump -d firmware.bin
+	$(OBJDUMP) -d firmware.bin
 
 cpp:
 	$(COMPILE) -E main.c
